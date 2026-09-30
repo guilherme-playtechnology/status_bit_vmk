@@ -1,0 +1,40 @@
+name: Atualizar dados.csv do GravityZone
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # de hora em hora, no minuto 17 (horário UTC)
+  workflow_dispatch:        # permite rodar na mão pela aba Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: atualizar-dados
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baixar relatório e gerar dados.csv
+        env:
+          GZ_API_KEY: ${{ secrets.GZ_API_KEY }}
+          GZ_API_URL: ${{ vars.GZ_API_URL }}
+          GZ_REPORT_ID: ${{ vars.GZ_REPORT_ID }}
+          GZ_REPORT_NAME: ${{ vars.GZ_REPORT_NAME }}
+        run: python3 scripts/atualizar_dados.py
+
+      - name: Publicar se mudou
+        run: |
+          if git diff --quiet -- dados.csv; then
+            echo "Sem mudanças no uso das licenças."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dados.csv
+          git commit -m "Atualiza dados.csv ($(TZ=America/Sao_Paulo date '+%d/%m/%Y %H:%M'))"
+          git push
